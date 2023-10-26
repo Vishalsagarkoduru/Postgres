@@ -1,8 +1,8 @@
-# creation of Resource Group
+#creation of resource group
 data "azurerm_client_config" "current" {}
 
 resource "azurerm_resource_group" "rg" {
-  name     = "brilliorg1"
+  name     = "briliorg12"
   location = "East US2"
 }
 
@@ -61,21 +61,21 @@ resource "azurerm_subnet" "subnet1" {
 # Create a managed identity for encryption key access
 resource "azurerm_user_assigned_identity" "userassignedid" {
   location            = "eastus2"
-  name                = "useridentity12"
-  resource_group_name = "brilliorg1"
+  name                = "brilliomi1221"
+  resource_group_name = azurerm_resource_group.rg.name
 }
 
 # Create a managed identity for encryption key access
 resource "azurerm_user_assigned_identity" "userassignedid1" {
   location            = "centralus"
-  name                = "useridentity123"
-  resource_group_name = "brilliorg1"
+  name                = "brilliomi1331"
+  resource_group_name = azurerm_resource_group.rg.name
 }
 
 # Creation of keyvault With Key permissions
 
 resource "azurerm_key_vault" "brilliokv" {
-  name                       = "brilliokv1299"
+  name                       = "brilliokv112"
   location                   = azurerm_resource_group.rg.location
   resource_group_name        = azurerm_resource_group.rg.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -89,10 +89,11 @@ resource "azurerm_key_vault_access_policy" "server" {
   object_id    = azurerm_user_assigned_identity.userassignedid.principal_id
 
   key_permissions = ["Get", "List", "WrapKey", "UnwrapKey", "GetRotationPolicy", "SetRotationPolicy"]
+  secret_permissions = ["Get","List",]
 }
   
 resource "azurerm_key_vault" "brilliokv1" {
-  name                       = "brilliokv1291"
+  name                       = "brilliokv221"
   location                   = "centralus"
   resource_group_name        = azurerm_resource_group.rg.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
@@ -106,8 +107,8 @@ resource "azurerm_key_vault_access_policy" "server1" {
   object_id    = azurerm_user_assigned_identity.userassignedid1.principal_id
 
   key_permissions = ["Get", "List", "WrapKey", "UnwrapKey", "GetRotationPolicy", "SetRotationPolicy"]
+  secret_permissions = ["Get","List",]
 }
-
 # Creation Of key in the keyvault. 
 
 resource "azurerm_key_vault_key" "generated" {
@@ -159,13 +160,13 @@ resource "azurerm_key_vault_key" "generated1" {
   }
 }
 # Allow managed identity to use the encryption key
-/*
-resource "azurerm_role_assignment" "example-key-reader" {
-  scope                = azurerm_key_vault.brilliokv.id
-  role_definition_name = "Key Vault Administrator"
-  principal_id         = azurerm_user_assigned_identity.userassignedid.principal_id
-}
-*/
+
+#resource "azurerm_role_assignment" "example-key-reader" {
+ # scope                = azurerm_key_vault.brilliokv.id
+ # role_definition_name = "Key Vault Administrator"
+ # principal_id         = azurerm_user_assigned_identity.userassignedid.principal_id
+#}
+
 
 # Creation of Private DNS zone. 
 
@@ -186,7 +187,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "vnetlink" {
 # Creation of postgres flexible server having geo-redundant enabled. 
 
 resource "azurerm_postgresql_flexible_server" "primaryserver" {
-  name                   = "brillio-psqlflexibleserver"
+  name                   = "testpostgreserver03"
   resource_group_name    = azurerm_resource_group.rg.name
   location               = azurerm_resource_group.rg.location
   version                = "15"
@@ -212,10 +213,61 @@ resource "azurerm_postgresql_flexible_server" "primaryserver" {
     geo_backup_user_assigned_identity_id = azurerm_user_assigned_identity.userassignedid1.id
 
   }
-} 
-
-resource "terraform_data" "geo-restore" {
+}
+  # creation of database.
+  resource "azurerm_postgresql_flexible_server_database" "default" {
+  name      = "Sampledb"
+  server_id = azurerm_postgresql_flexible_server.primaryserver.id
+  collation = "en_US.utf8"
+  charset   = "utf8"
+  depends_on = [ azurerm_postgresql_flexible_server.primaryserver ]
+}
+/*
+ resource "terraform_data" "geo-restore" {
   provisioner "local-exec" {
-    command = "az postgres flexible-server geo-restore --resource-group brilliorg1 --name brillioserver189 --source-server brillio-psqlflexibleserver --vnet brilliovnet1 --subnet brilliosubnet1 --address-prefixes 10.0.0.0/16 --subnet-prefixes 10.0.2.0/24 --private-dns-zone example.postgres.database.azure.com --location centralus"
+   command = "az postgres flexible-server geo-restore --resource-group briliorg12 --name brillioserver1979 --source-server testpostgreserver03 --backup-identity brilliomi1331 --backup-key /subscriptions/61323407-b144-4eac-883f-cc64a89b82e4/resourceGroups/briliorg12/providers/Microsoft.KeyVault/vaults/brilliokv221 --vnet brilliovnet1 --subnet brilliosubnet1 --address-prefixes 10.0.0.0/16 --subnet-prefixes 10.0.2.0/24 --private-dns-zone example.postgres.database.azure.com --location centralus --geo-redundant-backup Enabled --identity brilliomi1331 --key /subscriptions/61323407-b144-4eac-883f-cc64a89b82e4/resourceGroups/briliorg12/providers/Microsoft.KeyVault/vaults/brilliokv112"
   }
 }
+ 
+*/
+
+#creation of Eventhub namespace.
+resource "azurerm_eventhub_namespace" "postgresehn" {
+  name                = "mypostgresflex-EHN"
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
+  sku                 = "Standard"
+  capacity            = 2
+}
+#creation of evethub in the eventhub namespace.
+resource "azurerm_eventhub" "postgresEH" {
+  name                = "mypostgresflex-EH"
+  namespace_name      = azurerm_eventhub_namespace.postgresehn.name
+  resource_group_name = azurerm_resource_group.rg.name
+  partition_count     = 2
+  message_retention   = 1
+}
+#creation of authorization rules in eventhub namespace.
+resource "azurerm_eventhub_namespace_authorization_rule" "exampleEH" {
+  name                = "mypostgresflex-EHRule"
+  namespace_name      = azurerm_eventhub_namespace.postgresehn.name
+  resource_group_name = azurerm_resource_group.rg.name
+  listen              = true
+  send                = true
+  manage              = true
+}
+
+#Configuring the diagnostics settings in the postgres primary server
+
+resource "azurerm_monitor_diagnostic_setting" "example-ds" {
+  name               = "postgres-ds"
+  target_resource_id = azurerm_postgresql_flexible_server.primaryserver.id
+  eventhub_authorization_rule_id = azurerm_eventhub_namespace_authorization_rule.exampleEH.id
+  eventhub_name                  = azurerm_eventhub.postgresEH.name
+  
+  metric {
+    category = "AllMetrics"
+  }
+}
+
+
