@@ -264,7 +264,9 @@ resource "azurerm_monitor_diagnostic_setting" "example-ds" {
   target_resource_id = azurerm_postgresql_flexible_server.primaryserver.id
   eventhub_authorization_rule_id = azurerm_eventhub_namespace_authorization_rule.exampleEH.id
   eventhub_name                  = azurerm_eventhub.postgresEH.name
-  
+  enabled_log {
+    category_group = "allLogs"
+  }
   metric {
     category = "AllMetrics"
   }
